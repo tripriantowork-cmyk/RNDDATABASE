@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>R&D Management System</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        darkBg: '#111827',
+                        darkCard: '#1f2937'
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .hidden-for-user { display: none; }
+
+        .borrowing-card {
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+            background: white;
+            border-radius: 12px;
+        }
+        .dark .borrowing-card { background: #1f2937; }
+        .borrowing-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        .borrowing-card.dipinjam { border-left: 4px solid #f59e0b; }
+        .borrowing-card.dikembalikan { border-left: 4px solid #10b981; }
+        .borrowing-card .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .borrowing-card .status-badge.dipinjam {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .borrowing-card .status-badge.dikembalikan {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .borrowing-card .tool-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+        .borrowing-card .tool-icon.dipinjam {
+            background: #fef3c7;
+            color: #f59e0b;
+        }
+        .borrowing-card .tool-icon.dikembalikan {
+            background: #d1fae5;
+            color: #10b981;
+        }
+        .borrowing-card .info-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+            font-size: 0.875rem;
+        }
+        .borrowing-card .info-row i {
+            width: 18px;
+            color: #9ca3af;
+        }
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 dark:bg-darkBg dark:text-gray-200 transition-colors duration-300">
+
+    <!-- LOADING OVERLAY -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-white/80 dark:bg-darkBg/80 z-[200] hidden flex items-center justify-center">
+        <div class="text-center">
+            <div class="loading-spinner mx-auto mb-4"></div>
+            <p class="text-sm font-medium text-gray-600 dark:text-gray-300">Memproses data...</p>
+        </div>
+    </div>
+
+    <!-- LOGIN SCREEN -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-darkCard p-8 rounded-2xl shadow-xl w-full max-w-md fade-in">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                    <i class="fas fa-flask"></i>
+                </div>
+                <h2 class="text-2xl font-bold">R&D System</h2>
+                <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">Silakan login ke akun Anda</p>
+                <p class="text-xs text-blue-500 mt-2">(Gunakan admin / admin123 untuk Demo)</p>
+            </div>
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Username</label>
+                    <div class="relative">
+                        <i class="fas fa-user absolute left-3 top-3 text-gray-400"></i>
+                        <input type="text" id="username" class="w-full pl-10 pr-4 py-2 border dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 outline-none" required>
+                    </div>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-1">Password</label>
+                    <div class="relative">
+                        <i class="fas fa-lock absolute left-3 top-3 text-gray-400"></i>
+                        <input type="password" id="password" class="w-full pl-10 pr-4 py-2 border dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 outline-none" required>
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN APP SCREEN -->
+    <div id="mainApp" class="hidden h-screen flex overflow-hidden">
+        
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-64 bg-white dark:bg-darkCard shadow-lg flex flex-col transition-transform duration-300 absolute md:relative z-20 h-full -translate-x-full md:translate-x-0">
+            <div class="p-5 border-b dark:border-gray-700 flex justify-between items-center">
+                <div class="flex items-center gap-3 font-bold text-lg text-blue-600 dark:text-blue-400">
+                    <i class="fas fa-flask"></i> R&D Hub
+                </div>
+                <button onclick="toggleSidebar()" class="md:hidden text-gray-500"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <nav class="flex-1 overflow-y-auto py-4">
+                <ul class="space-y-1 px-3">
+                    <div id="adminDashboardMenu">
+                        <li><a href="#" onclick="navigate('Dashboard')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" data-menu="Dashboard"><i class="fas fa-home w-5"></i> Dashboard</a></li>
+                    </div>
+                    
+                    <div id="adminMenuSection">
+                        <li class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider mt-4">Master Data</li>
+                        <li><a href="#" onclick="navigate('Projects')" class="nav-link flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" data-menu="Projects"><i class="fas fa-project-diagram w-5"></i> Projects</a></li>
+                        <li><a href="#" onclick="navigate('Spareparts')" class="nav-link flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" data-menu="Spareparts"><i class="fas fa-cogs w-5"></i> Spareparts</a></li>
+                        <li><a href="#" onclick="navigate('Tools')" class="nav-link flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" data-menu="Tools"><i class="fas fa-tools w-5"></i> Tools</a></li>
+                    </div>
+                    
+                    <li class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider mt-4">Operasional</li>
+                    <li><a href="#" onclick="navigate('Borrowing')" class="nav-link flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" data-menu="Borrowing"><i class="fas fa-hand-holding-box w-5"></i> Peminjaman</a></li>
+                    
+                    <div id="adminProductsMenu">
+                        <li><a href="#" onclick="navigate('Products')" class="nav-link flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" data-menu="Products"><i class="fas fa-box w-5"></i> Riwayat Produk</a></li>
+                    </div>
+                    
+                    <div id="adminMenuSystem" class="hidden">
+                        <li class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider mt-4">Sistem (Admin)</li>
+                        <li><a href="#" onclick="navigate('Users')" class="nav-link flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" data-menu="Users"><i class="fas fa-users w-5"></i> Manajemen User</a></li>
+                        <li><a href="#" onclick="navigate('Activity Log')" class="nav-link flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" data-menu="Activity Log"><i class="fas fa-history w-5"></i> Activity Log</a></li>
+                        <li><a href="#" onclick="exportBackup()" class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-green-600"><i class="fas fa-file-excel w-5"></i> Backup Data</a></li>
+                        <li><a href="#" onclick="runSetup()" class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-purple-600"><i class="fas fa-database w-5"></i> Setup DB</a></li>
+                    </div>
+                </ul>
+            </nav>
+            
+            <div class="p-4 border-t dark:border-gray-700">
+                <div class="flex items-center gap-3 mb-4 px-2">
+                    <div class="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold" id="userAvatar">A</div>
+                    <div class="overflow-hidden">
+                        <p class="text-sm font-bold truncate" id="userNameDisplay">Admin</p>
+                        <p class="text-xs text-gray-500 truncate" id="userRoleDisplay">Administrator</p>
+                    </div>
+                </div>
+                <button onclick="handleLogout()" class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </aside>
+
+        <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-10 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col h-screen overflow-hidden">
+            <header class="bg-white dark:bg-darkCard shadow-sm py-4 px-6 flex justify-between items-center z-10">
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleSidebar()" class="md:hidden text-gray-600 dark:text-gray-300 text-xl"><i class="fas fa-bars"></i></button>
+                    <h1 id="pageTitle" class="text-xl font-bold">Peminjaman</h1>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleDarkMode()" class="text-gray-500 hover:text-blue-500 transition w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                        <i id="themeIcon" class="fas fa-moon"></i>
+                    </button>
+                </div>
+            </header>
+
+            <main class="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 relative" id="contentArea">
+                <!-- Dashboard View -->
+                <div id="view-Dashboard" class="view-section fade-in">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-white dark:bg-darkCard rounded-xl p-6 shadow-sm border-l-4 border-blue-500 flex justify-between items-center">
+                            <div><p class="text-sm text-gray-500 mb-1">Total Project</p><h3 class="text-3xl font-bold" id="stat-projects">0</h3></div>
+                            <div class="w-12 h-12 bg-blue-100 text-blue-500 rounded-full flex justify-center items-center text-xl"><i class="fas fa-project-diagram"></i></div>
+                        </div>
+                        <div class="bg-white dark:bg-darkCard rounded-xl p-6 shadow-sm border-l-4 border-orange-500 flex justify-between items-center">
+                            <div><p class="text-sm text-gray-500 mb-1">Tool Dipinjam</p><h3 class="text-3xl font-bold" id="stat-borrowed">0</h3></div>
+                            <div class="w-12 h-12 bg-orange-100 text-orange-500 rounded-full flex justify-center items-center text-xl"><i class="fas fa-tools"></i></div>
+                        </div>
+                        <div class="bg-white dark:bg-darkCard rounded-xl p-6 shadow-sm border-l-4 border-green-500 flex justify-between items-center">
+                            <div><p class="text-sm text-gray-500 mb-1">Total Produk R&D</p><h3 class="text-3xl font-bold" id="stat-products">0</h3></div>
+                            <div class="w-12 h-12 bg-green-100 text-green-500 rounded-full flex justify-center items-center text-xl"><i class="fas fa-box"></i></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CRUD Table View -->
+                <div id="view-CRUD" class="view-section hidden fade-in h-full flex flex-col">
+                    <div class="bg-white dark:bg-darkCard rounded-xl shadow-sm p-4 flex-1 flex flex-col">
+                        <div class="flex flex-col md:flex-row justify-between gap-4 mb-4">
+                            <div class="relative w-full md:w-64">
+                                <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
+                                <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="Cari data..." class="w-full pl-10 pr-4 py-2 border dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 outline-none text-sm">
+                            </div>
+                            <div class="flex gap-2 flex-wrap">
+                                <button onclick="exportTableToCSV()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2">
+                                    <i class="fas fa-file-csv"></i> Export
+                                </button>
+                                <button id="btnAddData" onclick="openModal('add')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2">
+                                    <i class="fas fa-plus"></i> Tambah Data
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex-1 overflow-x-auto">
+                            <table class="w-full text-left border-collapse" id="dataTable">
+                                <thead><tr class="bg-gray-100 dark:bg-gray-800 text-sm uppercase tracking-wide text-gray-600 dark:text-gray-400 border-b dark:border-gray-700" id="tableHead"></tr></thead>
+                                <tbody class="text-sm divide-y dark:divide-gray-700" id="tableBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="mt-4 flex justify-between items-center text-sm text-gray-500">
+                            <span id="tableInfo">Menampilkan 0 data</span>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modal Form CRUD -->
+    <div id="crudModal" class="fixed inset-0 bg-black/60 z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-darkCard rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col fade-in">
+            <div class="p-5 border-b dark:border-gray-700 flex justify-between items-center">
+                <h3 class="text-lg font-bold" id="modalTitle">Tambah Data</h3>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-red-500"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="p-5 overflow-y-auto flex-1">
+                <form id="crudForm" onsubmit="saveData(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                </form>
+            </div>
+            <div class="p-5 border-t dark:border-gray-700 flex justify-end gap-3 bg-gray-50 dark:bg-gray-800/50 rounded-b-2xl">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 border dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">Batal</button>
+                <button type="submit" form="crudForm" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Kamera -->
+    <div id="cameraModal" class="fixed inset-0 bg-black/80 z-[110] hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-darkCard p-4 rounded-xl shadow-xl flex flex-col items-center fade-in max-w-md w-full">
+            <div class="flex justify-between items-center w-full mb-3">
+                <h3 class="font-bold text-lg">📷 Ambil Foto</h3>
+                <button onclick="closeCamera()" class="text-gray-500 hover:text-red-500">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div id="cameraPreviewContainer" class="relative w-full bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden" style="aspect-ratio: 4/3;">
+                <img id="cameraPreview" class="w-full h-full object-contain hidden" alt="Preview foto">
+                <div id="cameraPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
+                    <i class="fas fa-camera text-5xl mb-3 opacity-50"></i>
+                    <p class="text-sm">Belum ada foto</p>
+                    <p class="text-xs opacity-50">Klik "Ambil Foto" untuk membuka kamera</p>
+                </div>
+            </div>
+            
+            <input type="file" id="cameraFileInput" accept="image/*" capture="environment" class="hidden">
+            
+            <div class="flex gap-3 w-full mt-4">
+                <button onclick="closeCamera()" class="flex-1 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition font-medium">
+                    <i class="fas fa-times mr-2"></i> Batal
+                </button>
+                <button onclick="openCameraCapture()" id="btnCapturePhoto" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium">
+                    <i class="fas fa-camera mr-2"></i> Ambil Foto
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= JAVASCRIPT LOGIC ================= -->
+    <script>
+        // ============================================
+        // KONFIGURASI API
+        // ============================================
+        // GANTI URL INI DENGAN URL DEPLOYMENT GAS ANDA
+        const API_URL = 'https://script.google.com/macros/s/AKfycbwHEqX1S8pxbfaBvM3XfW4E2kf4WUx-LVUV_JL-rN9VO_xHbUjAPGhXzowoamvLgt2K/exec';
+        
+        // ============================================
+        // GLOBAL STATE
+        // ============================================
+        let appState = {
+            user: null,
+            currentMenu: 'Borrowing',
+            currentData: [],
+            headers: [],
+            editId: null,
+            cameraTargetField: null
+        };
+
+        const schema = {
+            Projects: { fields: ['Nama Project', {name:'No SO/PO', type:'text'}, 'Customer', {name:'Tanggal', type:'date'}, 'Link BOM/BOQ', 'Keterangan'] },
+            Spareparts: { fields: ['Nama Sparepart', 'Spesifikasi', {name:'Stok', type:'number'}, 'Lokasi Penyimpanan'] },
+            Tools: { fields: ['Nama Tool', {name:'Jumlah', type:'number'}, 'Kondisi', {name:'Status', type:'select', options:['Tersedia','Dipinjam','Rusak','Maintenance']}] },
+            Products: { fields: [{name:'No SO/PO', type:'text'}, 'Nama Produk', 'Customer', {name:'Tanggal', type:'date'}, 'Link Video Test', 'Status Project', 'Keterangan'] },
+            Borrowing: { 
+                fields: [
+                    {name:'Nama Tool', type:'select', options:[]}, 
+                    'Nama Peminjam', 
+                    'Departemen', 
+                    {name:'Foto Peminjam', type:'camera'}, 
+                    {name:'Tanggal Pinjam', type:'date'}, 
+                    {name:'Status', type:'select', options:['Dipinjam','Dikembalikan']}, 
+                    {name:'Foto Kembali', type:'camera'},
+                    {name:'Tanggal Kembali', type:'date'}
+                ] 
+            },
+            Users: { fields: ['Nama', 'Username', {name:'Password', type:'password'}, {name:'Role', type:'select', options:['Admin','User']}, {name:'Status', type:'select', options:['Aktif','Nonaktif']}] },
+            'Activity Log': { readonly: true }
+        };
+
+        const userAccessibleMenus = ['Borrowing'];
+
+        // ============================================
+        // HELPER FUNCTIONS
+        // ============================================
+        function showLoader() { document.getElementById('loadingOverlay').classList.remove('hidden'); }
+        function hideLoader() { document.getElementById('loadingOverlay').classList.add('hidden'); }
+        
+        function toast(title, icon='success') {
+            Swal.fire({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, icon: icon, title: title });
+        }
+
+        function getCurrentDateWIB() {
+            const now = new Date();
+            const options = {
+                timeZone: 'Asia/Jakarta',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            };
+            return new Intl.DateTimeFormat('id-ID', options).format(now);
+        }
+
+        function getCurrentWIB() {
+            const now = new Date();
+            const options = {
+                timeZone: 'Asia/Jakarta',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            };
+            return new Intl.DateTimeFormat('id-ID', options).format(now);
+        }
+
+        // ============================================
+        // API CALLS
+        // ============================================
+        async function callAPI(action, data = {}) {
+            showLoader();
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: action,
+                        data: data
+                    })
+                });
+                
+                const result = await response.json();
+                hideLoader();
+                return result;
+            } catch (error) {
+                console.error('API Error:', error);
+                hideLoader();
+                throw error;
+            }
+        }
+
+        // ============================================
+        // AUTHENTICATION
+        // ============================================
+        async function handleLogin(e) {
+            e.preventDefault();
+            const u = document.getElementById('username').value.trim();
+            const p = document.getElementById('password').value;
+            
+            if (!u || !p) {
+                Swal.fire('Error', 'Username dan password harus diisi!', 'error');
+                return;
+            }
+            
+            try {
+                const result = await callAPI('login', { username: u, password: p });
+                
+                if(result && result.success) {
+                    appState.user = result.user;
+                    document.getElementById('loginScreen').classList.add('hidden');
+                    document.getElementById('mainApp').classList.remove('hidden');
+                    
+                    document.getElementById('userAvatar').innerText = appState.user.nama ? appState.user.nama.charAt(0).toUpperCase() : 'U';
+                    document.getElementById('userNameDisplay').innerText = appState.user.nama || 'User';
+                    document.getElementById('userRoleDisplay').innerText = appState.user.role || 'User';
+                    
+                    updateMenuVisibility();
+                    
+                    if (appState.user.role !== 'Admin') {
+                        toast('Selamat Datang, ' + (appState.user.nama || appState.user.username) + ' - Silakan gunakan menu Peminjaman');
+                        navigate('Borrowing');
+                    } else {
+                        toast('Selamat Datang, ' + (appState.user.nama || appState.user.username));
+                        navigate('Dashboard');
+                    }
+                } else {
+                    Swal.fire('Error', (result && result.message) || 'Login gagal!', 'error');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                Swal.fire('Error', 'Terjadi kesalahan saat login: ' + error.message, 'error');
+            }
+        }
+
+        function handleLogout() {
+            appState.user = null;
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('loginForm').reset();
+        }
+
+        // ============================================
+        // UPDATE MENU VISIBILITY
+        // ============================================
+        function updateMenuVisibility() {
+            const isAdmin = appState.user && appState.user.role === 'Admin';
+            
+            const adminDashboardMenu = document.getElementById('adminDashboardMenu');
+            const adminMenuSection = document.getElementById('adminMenuSection');
+            const adminProductsMenu = document.getElementById('adminProductsMenu');
+            const adminMenuSystem = document.getElementById('adminMenuSystem');
+            
+            if (isAdmin) {
+                if (adminDashboardMenu) adminDashboardMenu.style.display = 'block';
+                if (adminMenuSection) adminMenuSection.style.display = 'block';
+                if (adminProductsMenu) adminProductsMenu.style.display = 'block';
+                if (adminMenuSystem) adminMenuSystem.style.display = 'block';
+                document.getElementById('adminMenuSystem').classList.remove('hidden');
+            } else {
+                if (adminDashboardMenu) adminDashboardMenu.style.display = 'none';
+                if (adminMenuSection) adminMenuSection.style.display = 'none';
+                if (adminProductsMenu) adminProductsMenu.style.display = 'none';
+                if (adminMenuSystem) adminMenuSystem.style.display = 'none';
+                document.getElementById('adminMenuSystem').classList.add('hidden');
+                document.getElementById('view-Dashboard').classList.add('hidden');
+            }
+        }
+
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            document.getElementById('themeIcon').className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+
+        // ============================================
+        // NAVIGATION & RENDER
+        // ============================================
+        async function navigate(menu) {
+            if (appState.user && appState.user.role !== 'Admin') {
+                if (!userAccessibleMenus.includes(menu)) {
+                    Swal.fire('Akses Ditolak', 'Anda hanya bisa mengakses menu Peminjaman.', 'warning');
+                    return;
+                }
+            }
+            
+            appState.currentMenu = menu;
+            document.getElementById('pageTitle').innerText = menu;
+            
+            document.querySelectorAll('.nav-link').forEach(el => {
+                el.className = el.className.replace('bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400', 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200');
+                if(el.dataset.menu === menu) {
+                    el.className = el.className.replace('hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200', 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium');
+                }
+            });
+            
+            if(window.innerWidth < 768) toggleSidebar();
+
+            if(menu === 'Dashboard') {
+                document.getElementById('view-Dashboard').classList.remove('hidden');
+                document.getElementById('view-CRUD').classList.add('hidden');
+                loadDashboard();
+            } else {
+                document.getElementById('view-Dashboard').classList.add('hidden');
+                document.getElementById('view-CRUD').classList.remove('hidden');
+                document.getElementById('searchInput').value = '';
+                
+                const btnAdd = document.getElementById('btnAddData');
+                if(schema[menu] && schema[menu].readonly) btnAdd.classList.add('hidden');
+                else btnAdd.classList.remove('hidden');
+                
+                await loadTableData(menu);
+            }
+        }
+
+        // ============================================
+        // DASHBOARD
+        // ============================================
+        async function loadDashboard() {
+            try {
+                const projects = await callAPI('serverRequest', { action: 'read', sheetName: 'Projects' });
+                const tools = await callAPI('serverRequest', { action: 'read', sheetName: 'Tools' });
+                const products = await callAPI('serverRequest', { action: 'read', sheetName: 'Products' });
+                
+                document.getElementById('stat-projects').innerText = (projects && projects.data && projects.data.length) || 0;
+                document.getElementById('stat-products').innerText = (products && products.data && products.data.length) || 0;
+                
+                const borrowedTools = (tools && tools.data) ? tools.data.filter(t => t.Status === 'Dipinjam').length : 0;
+                document.getElementById('stat-borrowed').innerText = borrowedTools;
+                
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                document.getElementById('stat-projects').innerText = 'Error';
+                document.getElementById('stat-products').innerText = 'Error';
+                document.getElementById('stat-borrowed').innerText = 'Error';
+            }
+        }
+
+        // ============================================
+        // CRUD LOGIC
+        // ============================================
+        async function loadTableData(sheetName) {
+            try {
+                const result = await callAPI('serverRequest', { action: 'read', sheetName: sheetName });
+                const data = result.data || [];
+                appState.currentData = data;
+                
+                if(data && data.length > 0) {
+                    appState.headers = Object.keys(data[0]).filter(h => h !== 'ID' && h !== 'Password');
+                } else if (schema[sheetName]) {
+                    const fields = schema[sheetName].fields || [];
+                    appState.headers = ['No', ...fields.map(f => typeof f === 'string' ? f : f.name)];
+                } else {
+                    appState.headers = [];
+                }
+                
+                renderTable();
+            } catch (error) {
+                console.error('Load table error:', error);
+                appState.currentData = [];
+                appState.headers = [];
+                renderTable();
+                toast('Gagal memuat data: ' + error.message, 'error');
+            }
+        }
+
+        function renderBorrowingCards(data) {
+            const body = document.getElementById('tableBody');
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            
+            let filtered = data || [];
+            if(query) {
+                filtered = filtered.filter(row => 
+                    Object.values(row).some(val => 
+                        String(val).toLowerCase().includes(query)
+                    )
+                );
+            }
+
+            if(filtered.length === 0) {
+                body.innerHTML = `
+                    <tr>
+                        <td colspan="1">
+                            <div class="text-center py-12">
+                                <i class="fas fa-inbox text-4xl text-gray-300 mb-3"></i>
+                                <p class="text-gray-500">Tidak ada data peminjaman</p>
+                                <p class="text-xs text-gray-400 mt-1">Klik "Tambah Data" untuk meminjam tool</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                document.getElementById('tableInfo').innerText = 'Menampilkan 0 data';
+                return;
+            }
+
+            let cardsHtml = `<tr><td colspan="1"><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-2">`;
+            
+            filtered.forEach(row => {
+                const status = row.Status || 'Dipinjam';
+                const isDipinjam = status === 'Dipinjam';
+                const cardClass = isDipinjam ? 'dipinjam' : 'dikembalikan';
+                const toolIcon = isDipinjam ? '🔧' : '✅';
+                
+                cardsHtml += `
+                    <div class="borrowing-card ${cardClass} p-4 shadow-sm">
+                        <div class="flex items-start gap-3 mb-3">
+                            <div class="tool-icon ${cardClass} flex-shrink-0">
+                                ${toolIcon}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="font-bold text-gray-800 dark:text-white truncate">${row['Nama Tool'] || '-'}</h4>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 truncate">
+                                    <i class="fas fa-user mr-1"></i> ${row['Nama Peminjam'] || '-'}
+                                </p>
+                            </div>
+                            <span class="status-badge ${cardClass} flex-shrink-0">
+                                ${status}
+                            </span>
+                        </div>
+                        
+                        <div class="space-y-1.5 text-sm">
+                            <div class="info-row">
+                                <i class="fas fa-building"></i>
+                                <span class="text-gray-600 dark:text-gray-300">${row['Departemen'] || '-'}</span>
+                            </div>
+                            <div class="info-row">
+                                <i class="fas fa-calendar-plus"></i>
+                                <span class="text-gray-600 dark:text-gray-300">Pinjam: ${row['Tanggal Pinjam'] || '-'}</span>
+                            </div>
+                            ${isDipinjam ? 
+                                `<div class="info-row text-orange-600 dark:text-orange-400">
+                                    <i class="fas fa-clock"></i>
+                                    <span>Menunggu pengembalian</span>
+                                </div>` :
+                                `<div class="info-row text-green-600 dark:text-green-400">
+                                    <i class="fas fa-calendar-check"></i>
+                                    <span>Kembali: ${row['Tanggal Kembali'] || '-'}</span>
+                                </div>`
+                            }
+                        </div>
+                        
+                        <div class="mt-3 pt-3 border-t dark:border-gray-700 flex justify-between items-center">
+                            <div class="flex gap-2">
+                                ${row['Foto Peminjam'] ? 
+                                    `<img src="${row['Foto Peminjam']}" class="w-8 h-8 rounded-full object-cover border-2 border-blue-200 dark:border-blue-800" title="Foto Peminjam">` : 
+                                    `<div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs text-gray-500 border-2 border-gray-300 dark:border-gray-600">📷</div>`
+                                }
+                                ${row['Foto Kembali'] ? 
+                                    `<img src="${row['Foto Kembali']}" class="w-8 h-8 rounded-full object-cover border-2 border-green-200 dark:border-green-800" title="Foto Kembali">` : 
+                                    isDipinjam ? 
+                                    `<div class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xs text-gray-400 border-2 border-dashed border-gray-300 dark:border-gray-600">⬜</div>` :
+                                    ''
+                                }
+                            </div>
+                            <div class="flex gap-1">
+                                <button onclick="openModal('edit', '${row.ID}')" class="text-blue-500 hover:text-blue-700 p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition" title="${isDipinjam ? 'Kembalikan Tool' : 'Edit'}">
+                                    <i class="fas ${isDipinjam ? 'fa-undo' : 'fa-edit'}"></i>
+                                </button>
+                                <button onclick="deleteData('${row.ID}')" class="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 transition" title="Hapus">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            cardsHtml += `</div></td></tr>`;
+            body.innerHTML = cardsHtml;
+            document.getElementById('tableInfo').innerText = 'Menampilkan ' + filtered.length + ' data dari total ' + data.length;
+        }
+
+        function renderTable() {
+            const menu = appState.currentMenu;
+            
+            if (menu === 'Borrowing') {
+                const head = document.getElementById('tableHead');
+                head.innerHTML = '<th class="py-3 px-4">Data Peminjaman</th>';
+                renderBorrowingCards(appState.currentData || []);
+                return;
+            }
+            
+            const head = document.getElementById('tableHead');
+            const body = document.getElementById('tableBody');
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            
+            let filtered = appState.currentData || [];
+            if(query) {
+                filtered = filtered.filter(row => Object.values(row).some(val => String(val).toLowerCase().includes(query)));
+            }
+
+            if(!appState.headers || appState.headers.length === 0) {
+                head.innerHTML = '';
+                body.innerHTML = `<tr><td colspan="1" class="text-center py-8 text-gray-500">Tidak ada data ditemukan.</td></tr>`;
+                document.getElementById('tableInfo').innerText = 'Menampilkan 0 data';
+                return;
+            }
+
+            const isReadonly = schema[appState.currentMenu] && schema[appState.currentMenu].readonly;
+            head.innerHTML = appState.headers.map(h => `<th class="py-3 px-4">${h}</th>`).join('') 
+                + (isReadonly ? '' : `<th class="py-3 px-4 text-center">Aksi</th>`);
+            
+            if(filtered.length === 0) {
+                body.innerHTML = `<tr><td colspan="${appState.headers.length + 1}" class="text-center py-8 text-gray-500">Tidak ada data ditemukan.</td></tr>`;
+                document.getElementById('tableInfo').innerText = 'Menampilkan 0 data';
+                return;
+            }
+
+            body.innerHTML = filtered.map(row => {
+                let html = `<tr>`;
+                appState.headers.forEach(h => {
+                    let val = row[h];
+                    if(val && typeof val === 'string' && val.startsWith('data:image')) {
+                        val = `<img src="${val}" class="h-10 w-10 object-cover rounded shadow-sm hover:scale-150 transition transform origin-left">`;
+                    } else if (val && typeof val === 'string' && val.startsWith('http')) {
+                        val = `<a href="${val}" target="_blank" class="text-blue-500 hover:underline">Buka Link <i class="fas fa-external-link-alt text-xs"></i></a>`;
+                    } else if (h === 'Status' || h === 'Status Project') {
+                        let color = val === 'Tersedia' || val === 'Selesai' ? 'bg-green-100 text-green-700' : 
+                                    val === 'Dipinjam' || val === 'Proses' ? 'bg-orange-100 text-orange-700' : 
+                                    val === 'Nonaktif' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700';
+                        val = `<span class="px-2 py-1 rounded-full text-xs font-bold ${color}">${val || '-'}</span>`;
+                    } else if (h === 'Role') {
+                        let color = val === 'Admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
+                        val = `<span class="px-2 py-1 rounded-full text-xs font-bold ${color}">${val || '-'}</span>`;
+                    }
+                    html += `<td class="py-3 px-4 align-middle">${val !== undefined && val !== null ? val : '-'}</td>`;
+                });
+                
+                if(!isReadonly) {
+                    html += `<td class="py-3 px-4 text-center">
+                        <button onclick="openModal('edit', '${row.ID}')" class="text-blue-500 hover:text-blue-700 mx-1" title="Edit"><i class="fas fa-edit"></i></button>
+                        <button onclick="deleteData('${row.ID}')" class="text-red-500 hover:text-red-700 mx-1" title="Hapus"><i class="fas fa-trash"></i></button>
+                    </td>`;
+                }
+                html += `</tr>`;
+                return html;
+            }).join('');
+            
+            document.getElementById('tableInfo').innerText = 'Menampilkan ' + filtered.length + ' data dari total ' + appState.currentData.length;
+        }
+
+        function filterTable() { renderTable(); }
+
+        // ============================================
+        // MODAL & FORM BUILDER
+        // ============================================
+        function openModal(mode, id = null) {
+            appState.editId = id;
+            const menu = appState.currentMenu;
+            const formObj = schema[menu];
+            document.getElementById('modalTitle').innerText = mode === 'add' ? 'Tambah Data ' + menu : 'Edit Data ' + menu;
+            
+            const form = document.getElementById('crudForm');
+            form.innerHTML = '';
+            
+            document.querySelectorAll('[id^="preview_"]').forEach(el => {
+                el.src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+                el.classList.add('hidden');
+            });
+            
+            document.querySelectorAll('input[type="hidden"]').forEach(el => {
+                if (el.id && el.id.startsWith('field_')) {
+                    el.value = '';
+                }
+            });
+            
+            let rowData = {};
+            if(mode === 'edit' && id) {
+                rowData = appState.currentData.find(x => x.ID === id) || {};
+            }
+
+            if (!formObj || !formObj.fields) {
+                form.innerHTML = '<div class="col-span-2 text-center text-red-500">Error: Schema tidak ditemukan!</div>';
+                document.getElementById('crudModal').classList.remove('hidden');
+                return;
+            }
+            
+            let fieldsToRender = [...formObj.fields];
+            if (menu === 'Borrowing') {
+                if (mode === 'add') {
+                    fieldsToRender = fieldsToRender.filter(f => {
+                        const name = typeof f === 'string' ? f : f.name;
+                        return !['Foto Kembali', 'Tanggal Kembali'].includes(name);
+                    });
+                } else {
+                    fieldsToRender = formObj.fields;
+                }
+            }
+            
+            fieldsToRender.forEach(f => {
+                const name = typeof f === 'string' ? f : f.name;
+                const type = typeof f === 'string' ? 'text' : (f.type || 'text');
+                const options = f.options || [];
+                let val = rowData[name] !== undefined ? rowData[name] : '';
+                
+                let inputHtml = '';
+                const baseClass = "w-full px-3 py-2 border dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 outline-none mt-1 text-sm";
+                
+                if (type === 'date' && val) {
+                    try {
+                        const parts = val.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+                        if (parts) {
+                            val = `${parts[3]}-${parts[2]}-${parts[1]}`;
+                        }
+                    } catch(e) {}
+                }
+                
+                if (mode === 'add') {
+                    if (name === 'Tanggal Pinjam') {
+                        const today = new Date().toISOString().split('T')[0];
+                        val = today;
+                    }
+                    if (name === 'Status') {
+                        val = 'Dipinjam';
+                    }
+                }
+                
+                if (mode === 'edit' && menu === 'Borrowing' && name === 'Tanggal Kembali' && rowData.Status === 'Dikembalikan' && !val) {
+                    const today = new Date().toISOString().split('T')[0];
+                    val = today;
+                }
+                
+                if (type === 'select') {
+                    if (name === 'Nama Tool' && menu === 'Borrowing') {
+                        inputHtml = `<select id="field_${name}" class="${baseClass}" required>
+                            <option value="">Pilih Tool...</option>
+                        </select>`;
+                    } else {
+                        inputHtml = `<select id="field_${name}" class="${baseClass}" required>
+                            <option value="">Pilih...</option>
+                            ${options.map(o => `<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('')}
+                        </select>`;
+                    }
+                } 
+                else if (type === 'camera') {
+                    const isReadonly = (name === 'Foto Kembali' && mode === 'add');
+                    inputHtml = `
+                    <div class="flex gap-2 items-center mt-1">
+                        <input type="hidden" id="field_${name}" value="${val}">
+                        <img id="preview_${name}" src="${val || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='}" class="w-16 h-16 object-cover border rounded ${val?'':'hidden'}">
+                        <button type="button" onclick="openCamera('${name}')" class="bg-gray-200 dark:bg-gray-600 px-3 py-2 rounded-lg text-sm hover:bg-gray-300 transition" ${isReadonly ? 'disabled' : ''}>
+                            <i class="fas fa-camera"></i> ${isReadonly ? 'Tersedia saat kembali' : 'Ambil Foto'}
+                        </button>
+                        ${val ? `<button type="button" onclick="clearPhoto('${name}')" class="text-red-500 text-xs"><i class="fas fa-times"></i></button>`:''}
+                    </div>`;
+                }
+                else if (type === 'password') {
+                    inputHtml = `<input type="password" id="field_${name}" class="${baseClass}" ${mode==='add'?'required':''} placeholder="${mode==='edit'?'Isi jika ingin ganti password':''}">`;
+                }
+                else if (type === 'date') {
+                    const isDisabled = (name === 'Tanggal Kembali' && mode === 'add');
+                    inputHtml = `<input type="date" id="field_${name}" class="${baseClass}" value="${val}" ${mode==='add'?'required':''} ${isDisabled ? 'disabled' : ''}>`;
+                    if (isDisabled) {
+                        inputHtml += `<p class="text-xs text-gray-400 mt-1">Isi saat pengembalian</p>`;
+                    }
+                }
+                else {
+                    inputHtml = `<input type="${type}" id="field_${name}" class="${baseClass}" value="${val}" ${mode==='add'?'required':''}>`;
+                }
+
+                form.innerHTML += `
+                    <div class="${type==='textarea'?'col-span-1 md:col-span-2':''}">
+                        <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">${name}</label>
+                        ${inputHtml}
+                    </div>
+                `;
+            });
+
+            if (menu === 'Borrowing') {
+                loadToolsDropdown(rowData['Nama Tool'] || '');
+            }
+
+            if (menu === 'Borrowing') {
+                setTimeout(() => {
+                    const statusField = document.getElementById('field_Status');
+                    if (statusField) {
+                        statusField.addEventListener('change', function() {
+                            const isReturned = this.value === 'Dikembalikan';
+                            const tanggalKembaliField = document.getElementById('field_Tanggal Kembali');
+                            const fotoKembaliField = document.getElementById('field_Foto Kembali');
+                            const previewFotoKembali = document.getElementById('preview_Foto Kembali');
+                            
+                            if (isReturned) {
+                                const today = new Date().toISOString().split('T')[0];
+                                if (tanggalKembaliField) {
+                                    tanggalKembaliField.disabled = false;
+                                    tanggalKembaliField.value = today;
+                                    tanggalKembaliField.required = true;
+                                }
+                                if (fotoKembaliField) {
+                                    fotoKembaliField.disabled = false;
+                                }
+                                Swal.fire({
+                                    icon: 'info',
+                                    title: 'Pengembalian Tool',
+                                    text: 'Silakan ambil foto kondisi tool saat dikembalikan dan isi tanggal kembali',
+                                    timer: 3000,
+                                    showConfirmButton: false
+                                });
+                            } else {
+                                if (tanggalKembaliField) {
+                                    tanggalKembaliField.disabled = true;
+                                    tanggalKembaliField.value = '';
+                                    tanggalKembaliField.required = false;
+                                }
+                                if (fotoKembaliField) {
+                                    fotoKembaliField.disabled = true;
+                                    fotoKembaliField.value = '';
+                                    if (previewFotoKembali) {
+                                        previewFotoKembali.src = '';
+                                        previewFotoKembali.classList.add('hidden');
+                                    }
+                                }
+                            }
+                        });
+                        
+                        if (mode === 'edit') {
+                            statusField.dispatchEvent(new Event('change'));
+                        }
+                    }
+                }, 300);
+            }
+
+            document.getElementById('crudModal').classList.remove('hidden');
+        }
+
+        async function loadToolsDropdown(selectedTool = '') {
+            try {
+                const result = await callAPI('serverRequest', { action: 'read', sheetName: 'Tools' });
+                const tools = result.data || [];
+                const select = document.getElementById('field_Nama Tool');
+                if(select && tools) {
+                    select.innerHTML = '<option value="">Pilih Tool...</option>';
+                    tools.forEach(t => {
+                        const isAvailable = t.Status === 'Tersedia';
+                        const isSelected = t['Nama Tool'] === selectedTool;
+                        const isBorrowedByThis = isSelected && t.Status === 'Dipinjam';
+                        
+                        if (isAvailable || isSelected || isBorrowedByThis) {
+                            const statusText = t.Status === 'Tersedia' ? '✓ Tersedia' : '🔒 Dipinjam';
+                            select.innerHTML += `<option value="${t['Nama Tool']}" ${isSelected?'selected':''}>${t['Nama Tool']} (${t.Jumlah} pcs) - ${statusText}</option>`;
+                        }
+                    });
+                }
+            } catch(e) {
+                console.error('Error loading tools:', e);
+            }
+        }
+
+        function closeModal() { document.getElementById('crudModal').classList.add('hidden'); }
+
+        // ============================================
+        // SAVE DATA
+        // ============================================
+        async function saveData(e) {
+            e.preventDefault();
+            const menu = appState.currentMenu;
+            const formObj = schema[menu];
+            let payload = {};
+            
+            if (!formObj || !formObj.fields) {
+                Swal.fire('Error', 'Schema tidak ditemukan!', 'error');
+                return;
+            }
+            
+            if (menu === 'Users' && !appState.editId) {
+                const password = document.getElementById('field_Password');
+                if (!password || !password.value) {
+                    Swal.fire('Error', 'Password harus diisi untuk user baru!', 'error');
+                    return;
+                }
+            }
+            
+            let fieldsToProcess = [...formObj.fields];
+            if (menu === 'Borrowing' && !appState.editId) {
+                fieldsToProcess = fieldsToProcess.filter(f => {
+                    const name = typeof f === 'string' ? f : f.name;
+                    return !['Foto Kembali', 'Tanggal Kembali'].includes(name);
+                });
+            }
+            
+            let hasError = false;
+            fieldsToProcess.forEach(f => {
+                const name = typeof f === 'string' ? f : f.name;
+                const el = document.getElementById('field_'+name);
+                if (el) {
+                    let value = el.value;
+                    
+                    if (el.hasAttribute('required') && !value) {
+                        Swal.fire('Error', `Field ${name} harus diisi!`, 'error');
+                        hasError = true;
+                        return;
+                    }
+                    
+                    if (name.includes('Tanggal') && value) {
+                        const parts = value.split('-');
+                        if (parts.length === 3) {
+                            value = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                        }
+                    }
+                    payload[name] = value;
+                }
+            });
+            
+            if (hasError) return;
+
+            if (menu === 'Borrowing') {
+                const status = payload.Status;
+                const toolName = payload['Nama Tool'];
+                const tanggalKembali = payload['Tanggal Kembali'];
+                const fotoKembali = payload['Foto Kembali'];
+                
+                if (status === 'Dikembalikan') {
+                    if (!tanggalKembali) {
+                        Swal.fire('Error', 'Tanggal Kembali harus diisi saat mengembalikan tool!', 'error');
+                        return;
+                    }
+                    if (!fotoKembali) {
+                        Swal.fire('Error', 'Foto Kembali harus diambil saat mengembalikan tool!', 'error');
+                        return;
+                    }
+                }
+                
+                if (!appState.editId) {
+                    try {
+                        const result = await callAPI('serverRequest', { action: 'read', sheetName: 'Borrowing' });
+                        const latestData = result.data || [];
+                        const isBorrowed = latestData.some(b => 
+                            b['Nama Tool'] === toolName && b.Status === 'Dipinjam'
+                        );
+                        
+                        if (isBorrowed) {
+                            Swal.fire('Error', `Tool "${toolName}" sedang dipinjam dan belum dikembalikan!`, 'error');
+                            return;
+                        }
+                    } catch (e) {
+                        console.error('Error checking borrowing status:', e);
+                    }
+                }
+            }
+
+            const action = appState.editId ? 'update' : 'create';
+            if (appState.editId) payload.ID = appState.editId;
+
+            try {
+                const res = await callAPI('serverRequest', {
+                    action: action,
+                    sheetName: menu,
+                    payload: payload,
+                    username: appState.user ? appState.user.username : 'System'
+                });
+                
+                if(res && res.success) {
+                    toast(res.message);
+                    closeModal();
+                    
+                    // RESET FORM
+                    const form = document.getElementById('crudForm');
+                    if (form) {
+                        const inputs = form.querySelectorAll('input, select, textarea');
+                        inputs.forEach(input => {
+                            if (input.type === 'hidden' || input.type === 'file') return;
+                            if (input.tagName === 'SELECT') {
+                                input.selectedIndex = 0;
+                            } else if (input.type === 'checkbox' || input.type === 'radio') {
+                                input.checked = false;
+                            } else {
+                                input.value = '';
+                            }
+                        });
+                    }
+                    
+                    document.querySelectorAll('[id^="preview_"]').forEach(el => {
+                        el.src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+                        el.classList.add('hidden');
+                    });
+                    
+                    document.querySelectorAll('input[type="hidden"]').forEach(el => {
+                        if (el.id && el.id.startsWith('field_')) {
+                            el.value = '';
+                        }
+                    });
+                    
+                    await loadTableData(menu);
+                } else {
+                    Swal.fire('Error', (res && res.message) || 'Gagal menyimpan data!', 'error');
+                }
+            } catch (error) {
+                console.error('Save error:', error);
+                Swal.fire('Error', 'Terjadi kesalahan: ' + error.message, 'error');
+            }
+        }
+
+        // ============================================
+        // DELETE DATA
+        // ============================================
+        async function deleteData(id) {
+            if (!id) {
+                Swal.fire('Error', 'ID data tidak valid!', 'error');
+                return;
+            }
+            
+            const row = appState.currentData.find(x => x.ID === id);
+            if (row && row.Status === 'Dipinjam') {
+                const confirm = await Swal.fire({
+                    title: 'Hapus Peminjaman?',
+                    text: "Tool ini sedang dipinjam! Menghapus data akan mengembalikan status tool menjadi Tersedia. Lanjutkan?",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Ya, Hapus!'
+                });
+                if (!confirm.isConfirmed) return;
+            }
+            
+            const result = await Swal.fire({
+                title: 'Hapus Data?',
+                text: "Data yang dihapus tidak bisa dikembalikan!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Ya, Hapus!'
+            });
+            
+            if (result.isConfirmed) {
+                try {
+                    const res = await callAPI('serverRequest', {
+                        action: 'delete',
+                        sheetName: appState.currentMenu,
+                        payload: {ID: id},
+                        username: appState.user ? appState.user.username : 'System'
+                    });
+                    
+                    if(res && res.success) {
+                        toast('Data dihapus!');
+                        await loadTableData(appState.currentMenu);
+                    } else {
+                        Swal.fire('Error', (res && res.message) || 'Gagal menghapus data!', 'error');
+                    }
+                } catch (error) {
+                    console.error('Delete error:', error);
+                    Swal.fire('Error', 'Terjadi kesalahan: ' + error.message, 'error');
+                }
+            }
+        }
+
+        // ============================================
+        // CAMERA LOGIC
+        // ============================================
+        function openCamera(fieldName) {
+            appState.cameraTargetField = fieldName;
+            
+            const preview = document.getElementById('cameraPreview');
+            const placeholder = document.getElementById('cameraPlaceholder');
+            const fileInput = document.getElementById('cameraFileInput');
+            
+            if (preview) {
+                preview.classList.add('hidden');
+                preview.src = '';
+            }
+            if (placeholder) {
+                placeholder.style.display = 'flex';
+            }
+            if (fileInput) {
+                fileInput.value = '';
+                fileInput.onchange = null;
+            }
+            
+            document.getElementById('cameraModal').classList.remove('hidden');
+            
+            setTimeout(() => {
+                openCameraCapture();
+            }, 500);
+        }
+
+        function openCameraCapture() {
+            const fileInput = document.getElementById('cameraFileInput');
+            
+            if (!fileInput) {
+                Swal.fire('Error', 'Browser tidak mendukung fitur ini', 'error');
+                return;
+            }
+            
+            fileInput.click();
+            
+            fileInput.onchange = function(e) {
+                if (this.files && this.files[0]) {
+                    const file = this.files[0];
+                    
+                    if (!file.type.startsWith('image/')) {
+                        Swal.fire('Error', 'File harus berupa gambar!', 'error');
+                        this.value = '';
+                        return;
+                    }
+                    
+                    if (file.size > 5 * 1024 * 1024) {
+                        Swal.fire('Error', 'Ukuran gambar terlalu besar (max 5MB)!', 'error');
+                        this.value = '';
+                        return;
+                    }
+                    
+                    const reader = new FileReader();
+                    reader.onload = function(readerEvent) {
+                        const base64Img = readerEvent.target.result;
+                        
+                        const preview = document.getElementById('cameraPreview');
+                        const placeholder = document.getElementById('cameraPlaceholder');
+                        
+                        if (preview) {
+                            preview.src = base64Img;
+                            preview.classList.remove('hidden');
+                        }
+                        if (placeholder) {
+                            placeholder.style.display = 'none';
+                        }
+                        
+                        const fieldName = appState.cameraTargetField;
+                        if (fieldName) {
+                            const hiddenInput = document.getElementById('field_' + fieldName);
+                            if (hiddenInput) {
+                                hiddenInput.value = base64Img;
+                            }
+                            
+                            const previewEl = document.getElementById('preview_' + fieldName);
+                            if (previewEl) {
+                                previewEl.src = base64Img;
+                                previewEl.classList.remove('hidden');
+                            }
+                        }
+                        
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Foto Berhasil Diambil!',
+                            timer: 1500,
+                            showConfirmButton: false,
+                            toast: true,
+                            position: 'top-end'
+                        });
+                        
+                        setTimeout(() => {
+                            closeCamera();
+                        }, 1500);
+                    };
+                    
+                    reader.onerror = function() {
+                        Swal.fire('Error', 'Gagal membaca file!', 'error');
+                    };
+                    
+                    reader.readAsDataURL(file);
+                }
+                this.value = '';
+                this.onchange = null;
+            };
+        }
+
+        function closeCamera() {
+            const modal = document.getElementById('cameraModal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+            
+            const fileInput = document.getElementById('cameraFileInput');
+            if (fileInput) {
+                fileInput.value = '';
+                fileInput.onchange = null;
+            }
+            
+            const preview = document.getElementById('cameraPreview');
+            const placeholder = document.getElementById('cameraPlaceholder');
+            
+            if (preview) {
+                preview.src = '';
+                preview.classList.add('hidden');
+            }
+            if (placeholder) {
+                placeholder.style.display = 'flex';
+            }
+        }
+
+        function clearPhoto(fieldName) {
+            const hiddenInput = document.getElementById('field_' + fieldName);
+            if (hiddenInput) {
+                hiddenInput.value = '';
+            }
+            
+            const preview = document.getElementById('preview_' + fieldName);
+            if (preview) {
+                preview.src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+                preview.classList.add('hidden');
+            }
+        }
+
+        // ============================================
+        // EXPORT & SYSTEM
+        // ============================================
+        function exportTableToCSV() {
+            if(!appState.currentData || appState.currentData.length === 0) {
+                toast('Tidak ada data untuk diexport', 'warning');
+                return;
+            }
+            
+            const headers = appState.headers || [];
+            const rows = appState.currentData.map(row => 
+                headers.map(h => `"${(row[h]||'').toString().replace(/"/g, '""')}"`).join(',')
+            );
+            
+            const csv = headers.join(',') + '\n' + rows.join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', `Export_${appState.currentMenu}_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        async function exportBackup() {
+            try {
+                const result = await callAPI('exportAllData', {});
+                if(result && result.success) {
+                    const data = result.data;
+                    // Buat file JSON
+                    const json = JSON.stringify(data, null, 2);
+                    const blob = new Blob([json], { type: 'application/json' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.setAttribute('hidden', '');
+                    a.setAttribute('href', url);
+                    a.setAttribute('download', `Backup_${new Date().toISOString().slice(0,10)}.json`);
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    toast('Backup data berhasil!');
+                } else {
+                    Swal.fire('Error', 'Gagal mengambil data backup!', 'error');
+                }
+            } catch (error) {
+                console.error('Export backup error:', error);
+                Swal.fire('Error', 'Terjadi kesalahan: ' + error.message, 'error');
+            }
+        }
+        
+        async function runSetup() {
+            const confirm = await Swal.fire({
+                title: 'Konfirmasi Setup Database',
+                text: 'Ini akan mereset semua data! Lanjutkan?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Ya, Reset!'
+            });
+            
+            if (confirm.isConfirmed) {
+                try {
+                    const res = await callAPI('setupDatabase', {});
+                    if(res && res.success) {
+                        Swal.fire('Success', res.message, 'success');
+                        await loadTableData(appState.currentMenu);
+                    } else {
+                        Swal.fire('Error', (res && res.message) || 'Gagal setup database!', 'error');
+                    }
+                } catch (error) {
+                    console.error('Setup error:', error);
+                    Swal.fire('Error', 'Terjadi kesalahan: ' + error.message, 'error');
+                }
+            }
+        }
+
+        // ============================================
+        // INITIALIZE
+        // ============================================
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('R&D Management System loaded');
+            console.log('API URL:', API_URL);
+            
+            // Cek koneksi ke API
+            fetch(API_URL, { method: 'GET' })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('API Status:', data);
+                })
+                .catch(error => {
+                    console.error('API Connection Error:', error);
+                    toast('Gagal terhubung ke server. Pastikan GAS sudah di-deploy.', 'error');
+                });
+        });
+    </script>
+</body>
+</html>
